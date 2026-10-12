@@ -84,11 +84,6 @@ async function loginUser(user) {
       password: 'Test@1234'
     });
 
-    console.log(
-  'UNIFIED SEARCH RESPONSE:',
-  JSON.stringify(response.body, null, 2)
-);
-
   expect(response.statusCode).toBe(200);
 
   return response.body.accessToken || response.body.token;
@@ -403,25 +398,7 @@ describe('Pharmacy API', () => {
 
       queryPharmacies.mockResolvedValue([]);
 
-      console.log(
-  'TEST PHARMACY:',
-  JSON.stringify(
-    await Pharmacy.findById(pharmacy._id).lean(),
-    null,
-    2
-  )
-);
-
-console.log(
-  'TEST STOCK:',
-  JSON.stringify(
-    await Stock.find({ pharmacy: pharmacy._id }).lean(),
-    null,
-    2
-  )
-);
-
-      const response = await request(app)
+const response = await request(app)
         .get('/api/pharmacies/search-unified')
         .query({
           lat: TEST_LAT,

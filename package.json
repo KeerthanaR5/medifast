@@ -15,8 +15,8 @@
     "test:backend": "npm run test --workspace backend"
   },
   "engines": {
-    "node": ">=18 <21",
-    "npm": ">=10 <11"
-  },
-  "packageManager": "npm@10.8.2"
+    "node": "24.x",
+    "npm": ">=11 <12"
+},
+"packageManager": "npm@11.19.0"
 }

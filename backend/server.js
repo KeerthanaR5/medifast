@@ -628,40 +628,50 @@ const startServer = () => {
 // ===============================================
 // GRACEFUL SHUTDOWN
 // ===============================================
-const gracefulShutdown = (signal) => {
-  if (!server) {
-    return;
-  }
+let isShuttingDown = false;
 
-  console.log(`\n👋 ${signal} received. Shutting down gracefully...`);
+const gracefulShutdown = async (signal) => {
+  if (isShuttingDown) return;
 
-  server.close((err) => {
-    if (err) {
-      console.error('❌ Error during server shutdown:', err);
-      process.exit(1);
-    }
+  isShuttingDown = true;
 
-    console.log('🔌 HTTP server closed');
+  console.log(`\n${signal} received. Shutting down gracefully...`);
 
-    mongoose.connection.close(false, (err) => {
-      if (err) {
-        console.error('❌ Error closing MongoDB connection:', err);
-        process.exit(1);
-      }
-
-      console.log('📚 MongoDB connection closed');
-      console.log('✅ Graceful shutdown completed');
-      process.exit(0);
-    });
-  });
-
-  // Force shutdown after 10 seconds
-  setTimeout(() => {
-    console.error('⏰ Graceful shutdown timeout, forcing exit');
+  const timeout = setTimeout(() => {
+    console.error('Graceful shutdown timeout. Forcing exit.');
     process.exit(1);
   }, 10000);
-};
 
+  timeout.unref();
+
+  let exitCode = ['SIGINT', 'SIGTERM'].includes(signal) ? 0 : 1;
+
+  try {
+    if (server && server.listening) {
+      await new Promise((resolve, reject) => {
+        server.close((err) => {
+          if (err) reject(err);
+          else resolve();
+        });
+      });
+
+      console.log('HTTP server closed');
+    }
+
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.connection.close();
+      console.log('MongoDB connection closed');
+    }
+
+    console.log('Graceful shutdown completed');
+  } catch (error) {
+    console.error('Shutdown error:', error);
+    exitCode = 1;
+  } finally {
+    clearTimeout(timeout);
+    process.exit(exitCode);
+  }
+};
 if (require.main === module) {
   startServer();
 

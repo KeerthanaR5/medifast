@@ -170,7 +170,7 @@ router.get('/search-external', overpassLimiter, async (req, res) => {
           key: 'location'
         }
       },
-      { $match: { verified: true } },
+      { $match: { verified: { $in: ['auto', 'manual'] } } },
       { $project: { _id: 1, name: 1, coords: '$address.coordinates' } }
     ]);
 
@@ -298,7 +298,7 @@ router.get('/search-unified', async (req, res) => {
           key: 'address.coordinates'
         }
       },
-      { $match: { verified: true } },
+      { $match: { verified: { $in: ['auto', 'manual'] } } },
       {
         $lookup: {
           from: 'stocks',

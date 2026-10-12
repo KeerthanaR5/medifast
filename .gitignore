@@ -1,0 +1,48 @@
+# Environment & secret files
+.env
+*.env
+
+# OS / system files
+.DS_Store
+Thumbs.db
+
+# Dependency folders
+node_modules/
+venv/
+__pycache__/
+
+# Log files
+*.log
+.env
+
+# Deployment exclusions
+.env.*
+!.env.example
+**/.env.*
+!**/.env.example
+**/.env
+**/node_modules/
+frontend/build/
+**/coverage/
+*.log
+npm-debug.log*
+
+# Deployment exclusions
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build files
+frontend/build/
+**/coverage/
+
+# Logs
+*.log
+npm-debug.log*

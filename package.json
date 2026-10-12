@@ -1,0 +1,22 @@
+{
+  "name": "medi-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "install:all": "npm install --workspaces",
+    "start:frontend": "npm run start --workspace frontend",
+    "start:backend": "npm run dev --workspace backend",
+    "build:frontend": "npm run build --workspace frontend",
+    "test:frontend": "npm run test --workspace frontend",
+    "test:backend": "npm run test --workspace backend"
+  },
+  "engines": {
+    "node": ">=18 <21",
+    "npm": ">=10 <11"
+  },
+  "packageManager": "npm@10.8.2"
+}

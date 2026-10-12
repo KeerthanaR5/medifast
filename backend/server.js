@@ -2,50 +2,19 @@ const path = require('path');
 const fs = require('fs');
 
 // ===============================================
-// ENVIRONMENT SETUP AND DEBUGGING
+// ENVIRONMENT SETUP
 // ===============================================
 
-// Check if .env file exists and load it
+// Load local .env when available.
+// Render provides environment variables directly.
 const envPath = path.resolve(__dirname, '.env');
-console.log('===============================================');
-console.log('🔧 MediFast Backend Server Initialization');
-console.log('===============================================');
-console.log('📍 .env file path:', envPath);
-console.log('📁 .env file exists:', fs.existsSync(envPath));
 
 if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, 'utf8');
-  console.log('📝 .env file size:', envContent.length, 'characters');
-  
-  // Load environment variables
-  const dotenvResult = require('dotenv').config({ 
-    path: envPath,
-    debug: false  // Set to true for more debugging
-  });
-  
-  if (dotenvResult.error) {
-    console.error('❌ Error loading .env file:', dotenvResult.error);
-  } else {
-    console.log('✅ Environment variables loaded successfully');
-  }
+  require('dotenv').config({ path: envPath, quiet: true });
+  console.log('Local environment configuration loaded');
 } else {
-  if (process.env.NODE_ENV === 'test') {
-    console.warn('⚠️  .env not found, continuing because NODE_ENV=test');
-  } else {
-    console.error('❌ .env file not found at:', envPath);
-    console.log('📋 Please create a .env file with the following content:');
-    console.log(`
-NODE_ENV=development
-PORT=5000
-MONGODB_URI=your-mongodb-connection-string
-JWT_ACCESS_SECRET=your-access-secret
-JWT_REFRESH_SECRET=your-refresh-secret
-CLIENT_URL=http://localhost:3000
-`);
-    process.exit(1);
-  }
+  console.log('Using environment variables provided by hosting platform');
 }
-
 // ===============================================
 // IMPORTS
 // ===============================================

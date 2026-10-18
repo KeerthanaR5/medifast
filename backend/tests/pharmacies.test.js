@@ -418,10 +418,45 @@ const response = await request(app)
       expect(result.stock).toBeDefined();
       expect(result.stock.quantity).toBe(25);
     });
+        test('should return verified pharmacies when Overpass fails', async () => {
+      const medicine = await createMedicine();
+      const pharmacy = await createPharmacy();
 
+      await Stock.create({
+        pharmacy: pharmacy._id,
+        medicine: medicine._id,
+        medicineName: medicine.name,
+        quantity: 25,
+        unit: 'tabs',
+        unitPrice: 5,
+        lastUpdated: new Date()
+      });
+
+      // Simulate an external Overpass API outage
+      queryPharmacies.mockRejectedValueOnce(
+        new Error('Overpass API unavailable')
+      );
+
+      const response = await request(app)
+        .get('/api/pharmacies/search-unified')
+        .query({
+          lat: TEST_LAT,
+          lon: TEST_LON,
+          medicine: 'Paracetamol'
+        });
+
+      expect(queryPharmacies).toHaveBeenCalled();
+      expect(response.statusCode).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.results).toHaveLength(1);
+
+      const result = response.body.results[0];
+
+      expect(result.name).toBe('Test Medical Pharmacy');
+      expect(result.verified).toBe(true);
+      expect(result.stock.quantity).toBe(25);
+    });
   });
-
-
   // ---------------------------------------------------------
   // NORMAL SEARCH
   // ---------------------------------------------------------

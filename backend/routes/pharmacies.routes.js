@@ -380,9 +380,17 @@ router.get('/search-unified', async (req, res) => {
     tier1.sort((a,b)=>a.distance_m-b.distance_m);
     tier2.sort((a,b)=>a.distance_m-b.distance_m);
 
-    // Fetch external unverified & de-duplicate against verified coords/names
-    const overpassItems = await queryPharmacies(lat, lon, radiusMeters);
+    // Fetch external unverified pharmacies without blocking verified results
+    let overpassItems = [];
 
+    try {
+      overpassItems = await queryPharmacies(lat, lon, radiusMeters);
+    } catch (error) {
+      console.warn(
+        '[Unified Search] Overpass unavailable; continuing with verified pharmacies:',
+        error.message
+      );
+    }
     const normalize = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
     const verifiedIndex = verifiedAll.map(v => ({
       nameN: normalize(v.name),

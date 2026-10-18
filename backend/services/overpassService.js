@@ -1,9 +1,39 @@
 // Service to query Overpass API for pharmacies around a point
 // Uses Node 18+ global fetch
 
-const OVERPASS_ENDPOINT = 'https://overpass-api.de/api/interpreter';
+const OVERPASS_ENDPOINTS = [
+  'https://overpass.private.coffee/api/interpreter',
+  'https://overpass-api.de/api/interpreter'
+];
+
+function validateSearchParameters(lat, lon, radiusMeters) {
+  const isValidNumber = (value) =>
+    (typeof value === 'number' ||
+      (typeof value === 'string' && value.trim() !== '')) &&
+    Number.isFinite(Number(value));
+
+  if (!isValidNumber(lat) || Number(lat) < -90 || Number(lat) > 90) {
+    throw new Error('Invalid latitude: must be between -90 and 90');
+  }
+
+  if (!isValidNumber(lon) || Number(lon) < -180 || Number(lon) > 180) {
+    throw new Error('Invalid longitude: must be between -180 and 180');
+  }
+
+  if (
+    !isValidNumber(radiusMeters) ||
+    Number(radiusMeters) <= 0 ||
+    Number(radiusMeters) > 50000
+  ) {
+    throw new Error('Invalid radius: must be between 0 and 50000 meters');
+  }
+}
 
 function buildOverpassQuery(lat, lon, radiusMeters) {
+  validateSearchParameters(lat, lon, radiusMeters);
+  lat = Number(lat);
+  lon = Number(lon);
+  radiusMeters = Number(radiusMeters);
   // Overpass QL: around:<radius> <lat> <lon>
   // Query nodes and ways with amenity=pharmacy and optional opening_hours
   return `
@@ -53,27 +83,49 @@ function mapOverpassElement(el) {
 
 async function queryPharmacies(lat, lon, radiusMeters) {
   const query = buildOverpassQuery(lat, lon, radiusMeters);
-  const body = new URLSearchParams({ data: query });
 
-  const res = await fetch(OVERPASS_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      'User-Agent': process.env.OVERPASS_USER_AGENT || 'MediFast/1.0 (+https://example.com)'
-    },
-    body
-  });
+  let lastError;
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Overpass API error: ${res.status} ${res.statusText} - ${text.slice(0, 200)}`);
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      console.log(`[Overpass] Trying ${endpoint}`);
+
+      const res = await fetch(endpoint, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+    'Accept': 'application/json',
+    'User-Agent': process.env.OVERPASS_USER_AGENT || 'MediFast/1.0'
+  },
+  body: new URLSearchParams({ data: query }),
+  signal: AbortSignal.timeout(25000)
+});
+
+      if (!res.ok) {
+        throw new Error(`Overpass returned HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (!Array.isArray(data.elements)) {
+        throw new Error('Invalid Overpass response');
+      }
+
+      console.log(`[Overpass] Success from ${endpoint}`);
+
+      return data.elements
+        .map(mapOverpassElement)
+        .filter(item => item.coordinates);
+
+    } catch (error) {
+      lastError = error;
+      console.warn(`[Overpass] ${endpoint} failed: ${error.message}`);
+    }
   }
 
-  const data = await res.json();
-  const elements = Array.isArray(data.elements) ? data.elements : [];
-  return elements
-    .map(mapOverpassElement)
-    .filter(item => item.coordinates); // only items with coords
+  throw new Error(
+    `All Overpass endpoints failed. Last error: ${lastError?.message || 'Unknown error'}`
+  );
 }
 
 // Public alias
@@ -86,7 +138,11 @@ const _cache = new Map(); // key -> { data, expiresAt }
 const MAX_ENTRIES = 200;
 
 function _makeKey(lat, lon, radiusMeters) {
-  return `${lat.toFixed(5)}_${lon.toFixed(5)}_${Math.round(radiusMeters)}`;
+  const latitude = Number(lat);
+  const longitude = Number(lon);
+  const radius = Number(radiusMeters);
+
+  return `${latitude.toFixed(5)}_${longitude.toFixed(5)}_${Math.round(radius)}`;
 }
 
 function _setCache(key, value, ttlMs) {
@@ -110,6 +166,7 @@ function _getCache(key) {
 }
 
 async function queryNearbyCached(lat, lon, radiusMeters, ttlMs = undefined) {
+  validateSearchParameters(lat, lon, radiusMeters);
   const envTtl = parseInt(process.env.OVERPASS_CACHE_TTL_SECONDS || '90', 10) * 1000;
   ttlMs = ttlMs ?? envTtl;
   const key = _makeKey(lat, lon, radiusMeters);
@@ -132,32 +189,63 @@ module.exports = {
   /**
    * Fetch a single OSM element (node/way/relation) by id. Tries all types.
    */
-  async getElementById(osmId) {
-    const id = String(osmId).trim();
-    const query = `
-      [out:json][timeout:25];
-      (
-        node(${id});
-        way(${id});
-        relation(${id});
-      );
-      out center tags;
-    `;
-    const body = new URLSearchParams({ data: query });
-    const res = await fetch(OVERPASS_ENDPOINT, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'User-Agent': process.env.OVERPASS_USER_AGENT || 'MediFast/1.0 (+https://example.com)'
-      },
-      body
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Overpass API error: ${res.status} ${res.statusText} - ${text.slice(0,200)}`);
-    }
-    const data = await res.json();
-    const el = (data.elements && data.elements[0]) ? data.elements[0] : null;
-    return el ? mapOverpassElement(el) : null;
+async getElementById(osmId) {
+  const id = String(osmId).trim();
+
+  // OSM IDs must contain positive integers only.
+  if (!/^[1-9]\d*$/.test(id)) {
+    throw new Error('Invalid OSM element ID');
   }
+
+  const query = `
+    [out:json][timeout:25];
+    (
+      node(${id});
+      way(${id});
+      relation(${id});
+    );
+    out center tags;
+  `;
+
+  let lastError;
+
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      console.log(`[Overpass] Looking up element ${id} via ${endpoint}`);
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'Accept': 'application/json',
+          'User-Agent': process.env.OVERPASS_USER_AGENT || 'MediFast/1.0'
+        },
+        body: new URLSearchParams({ data: query }),
+        signal: AbortSignal.timeout(25000)
+      });
+
+      if (!res.ok) {
+        throw new Error(`Overpass returned HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (!Array.isArray(data.elements)) {
+        throw new Error('Invalid Overpass response');
+      }
+
+      const element = data.elements[0] || null;
+
+      return element ? mapOverpassElement(element) : null;
+    } catch (error) {
+      lastError = error;
+      console.warn(`[Overpass] Element lookup failed: ${error.message}`);
+    }
+  }
+
+  throw new Error(
+    `All Overpass endpoints failed for element ${id}: ${lastError?.message || 'Unknown error'}`
+  );
+}
+
 };

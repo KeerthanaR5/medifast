@@ -1083,47 +1083,45 @@ const updatePreferences = async (req, res) => {
     });
   }
 };
-
 // Get Home Page Statistics
 const getHomeStats = async (req, res) => {
   try {
-    // Get user statistics from database
-    const [totalUsers, totalPharmacies, verifiedPharmacies] = await Promise.all([
-      User.countDocuments({ role: 'customer' }),
-      User.countDocuments({ role: 'pharmacy' }),
-      User.countDocuments({ 
-        role: 'pharmacy', 
-        'pharmacyDetails.verified': true 
-      })
-    ]);
+    const Medicine = require('../models/Medicine');
 
-    const stats = {
-      totalUsers: totalUsers || 10000, // Fallback to default
-      pharmacies: verifiedPharmacies || 500, // Show only verified pharmacies
-      medicines: 50000, // This would come from Medicine model when implemented
-      support: '24/7'
-    };
+    const [totalUsers, verifiedPharmacies, medicineCount] =
+      await Promise.all([
+        User.countDocuments({ role: 'customer' }),
+        User.countDocuments({
+          role: 'pharmacy',
+          'pharmacyDetails.verified': true
+        }),
+        Medicine.countDocuments()
+      ]);
 
     res.status(200).json({
       success: true,
-      data: stats,
+      data: {
+        totalUsers,
+        pharmacies: verifiedPharmacies,
+        medicines: medicineCount,
+        support: '24/7'
+      },
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
     console.error('Get home stats error:', error);
-    
-    // Return default stats if database query fails
-    res.status(200).json({
-      success: true,
+
+    res.status(500).json({
+      success: false,
+      message: 'Unable to fetch statistics',
       data: {
-        totalUsers: 10000,
-        pharmacies: 500,
-        medicines: 50000,
+        totalUsers: null,
+        pharmacies: null,
+        medicines: null,
         support: '24/7'
       },
-      timestamp: new Date().toISOString(),
-      note: 'Default statistics due to database error'
+      timestamp: new Date().toISOString()
     });
   }
 };

@@ -32,10 +32,8 @@ export default function PharmacyDashboard({ onLogout }) {
   }, [navigate]);
 
   useEffect(() => {
-    loadDashboard();
-    const t = setInterval(loadDashboard, 30000);
-    return () => clearInterval(t);
-  }, [loadDashboard]);
+  loadDashboard();
+}, [loadDashboard]);
 
   const [profileForm, setProfileForm] = useState({});
   const [profileDirty, setProfileDirty] = useState(false);

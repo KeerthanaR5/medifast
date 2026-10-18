@@ -49,19 +49,53 @@ export default function AdminPharmacies() {
     } finally { setDetailLoading(false); }
   }
 
+
   async function approve(id) {
+    const confirmed = window.confirm(
+      'Have you independently verified this pharmacy license and ownership? ' +
+      'External map matching alone is not sufficient. ' +
+      'Click OK only after completing verification.'
+    );
+
+    if (!confirmed) return;
+
+    const verificationNote = window.prompt(
+      'Describe how you independently verified the pharmacy license and ownership. Include the verification source and relevant details:'
+    );
+
+    if (verificationNote === null) return;
+
+    if (verificationNote.trim().length < 20) {
+      alert('Please provide a verification note of at least 20 characters.');
+      return;
+    }
+
     setApproveBusy(true);
+
     try {
-      const body = externalIdInput ? { externalId: externalIdInput.trim() } : {};
+      const body = {
+        verificationConfirmed: true,
+        verificationNote: verificationNote.trim(),
+        ...(externalIdInput.trim()
+          ? { externalId: externalIdInput.trim() }
+          : {})
+      };
+
       await api.patch(`/admin/pharmacies/${id}/approve`, body);
+
       setDetail(null);
-      // refresh list
+
+      // Refresh pending pharmacies
       const res = await api.get('/admin/pharmacies/pending');
       setRows(res.data?.data || []);
     } catch (e) {
       alert(e?.response?.data?.message || 'Approve failed');
-    } finally { setApproveBusy(false); }
+    } finally {
+      setApproveBusy(false);
+    }
   }
+
+
 
   async function reject(id) {
     if (!window.confirm('Reject this pharmacy?')) return;
@@ -127,7 +161,7 @@ export default function AdminPharmacies() {
 
   return (
     <div className="dashboard-content" style={{ padding: 16 }}>
-      <h2>Admin — Pending Pharmacies</h2>
+      <h2>Admin  EPending Pharmacies</h2>
       {loading && <div>Loading…</div>}
       {error && <div style={{ color: '#dc2626' }}>{error}</div>}
       {!loading && !error && (
@@ -142,7 +176,9 @@ export default function AdminPharmacies() {
             <h3 style={{ margin: 0 }}>{detail.pharmacy?.name}</h3>
             <div style={{ color: '#6b7280' }}>{detail.pharmacy?.addressNormalized}</div>
             <div><b>Verified:</b> {detail.pharmacy?.verified} {detail.pharmacy?.externalId ? `(extId ${detail.pharmacy.externalId})` : ''}</div>
-            <div><b>License:</b> {detail.pharmacy?.licenseNumber || '—'}</div>
+
+            <div><b>License:</b> {detail.pharmacy?.licenseNumber || 'N/A'}</div>
+
             {detail.candidateLookupUnavailable && (
   <div
     role="alert"

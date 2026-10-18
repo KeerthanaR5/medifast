@@ -114,12 +114,45 @@ async function approvePharmacy(req, res) {
   try {
     const ph = await Pharmacy.findById(req.params.id);
     if (!ph) return res.status(404).json({ success:false, message:'Not found' });
-    const { externalId } = req.body || {};
+
+    const {
+      externalId,
+      verificationConfirmed,
+      verificationNote
+    } = req.body || {};
+
+    if (verificationConfirmed !== true) {
+      return res.status(400).json({
+        success: false,
+        message: 'Independent pharmacy verification confirmation is required.'
+      });
+    }
+
+    if (
+      typeof verificationNote !== 'string' ||
+      verificationNote.trim().length < 20
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: 'Provide a verification note of at least 20 characters describing the license and ownership checks.'
+      });
+    }
+
     ph.verified = 'manual';
+
     if (externalId) ph.externalId = String(externalId);
+
     // Audit entry
     ph.auditTrail = ph.auditTrail || [];
-    ph.auditTrail.push({ action: 'approve', admin: req.user?.id || null, note: externalId ? `externalId=${externalId}` : undefined });
+    ph.auditTrail.push({
+      action: 'approve',
+      admin: req.user?.id || null,
+      note: [
+        `Manual verification confirmed: ${verificationNote.trim()}`,
+        externalId ? `externalId=${externalId}` : null
+      ].filter(Boolean).join('; ')
+    });
+
     try {
       await ph.save();
     } catch (e) {

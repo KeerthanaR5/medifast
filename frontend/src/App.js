@@ -13,6 +13,7 @@ import { connectionAPI } from './services/api';
 import api from './services/api';
 import './App.css';
 import './index.css';
+import AdminPharmacies from './pages/AdminPharmacies';
 
 const AppContent = () => {
   const [user, setUser] = useState(null);
@@ -55,6 +56,16 @@ const AppContent = () => {
   }, [isInitializing]);
 
   const roleAwareRedirect = async (userData) => {
+        // Redirect administrators to the admin pharmacy management page
+    const isAdmin =
+      userData?.role === 'admin' ||
+      userData?.userType === 'admin';
+
+    if (isAdmin) {
+      console.log('navigate -> /admin/pharmacies');
+      navigate('/admin/pharmacies', { replace: true });
+      return;
+    }
     try {
       const isPharmacy = userData?.role === 'pharmacy' || userData?.userType === 'pharmacy';
       console.log('roleAwareRedirect:user', { role: userData?.role, userType: userData?.userType, profileComplete: userData?.profileComplete });
@@ -145,11 +156,13 @@ const AppContent = () => {
           path="/"
           element={
             user ? (
-              (user.role === 'pharmacy' || user.userType === 'pharmacy') ? (
-                <Navigate to="/pharmacy/dashboard" replace />
-              ) : (
-                <Navigate to="/dashboard" replace />
-              )
+              (user.role === 'admin' || user.userType === 'admin') ? (
+  <Navigate to="/admin/pharmacies" replace />
+) : (user.role === 'pharmacy' || user.userType === 'pharmacy') ? (
+  <Navigate to="/pharmacy/dashboard" replace />
+) : (
+  <Navigate to="/dashboard" replace />
+)
             ) : (
               <Homepage
                 onLogin={handleLogin}
@@ -165,11 +178,13 @@ const AppContent = () => {
           path="/dashboard"
           element={
             user ? (
-              (user.role === 'pharmacy' || user.userType === 'pharmacy') ? (
-                <Navigate to="/pharmacy/dashboard" replace />
-              ) : (
-                <Dashboard user={user} onLogout={handleLogout} apiStatus={apiStatus} />
-              )
+              (user.role === 'admin' || user.userType === 'admin') ? (
+  <Navigate to="/admin/pharmacies" replace />
+) : (user.role === 'pharmacy' || user.userType === 'pharmacy') ? (
+  <Navigate to="/pharmacy/dashboard" replace />
+) : (
+  <Dashboard user={user} onLogout={handleLogout} apiStatus={apiStatus} />
+)
             ) : (
               <Navigate to="/" replace />
             )
@@ -243,6 +258,16 @@ const AppContent = () => {
             )
           }
         />
+        <Route
+  path="/admin/pharmacies"
+  element={
+    user && (user.role === 'admin' || user.userType === 'admin') ? (
+      <AdminPharmacies />
+    ) : (
+      <Navigate to={user ? "/dashboard" : "/"} replace />
+    )
+  }
+/>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

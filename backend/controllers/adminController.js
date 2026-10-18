@@ -74,15 +74,36 @@ async function getPharmacyDetail(req, res) {
     if (!ph) return res.status(404).json({ success:false, message:'Not found' });
 
     let candidate = null;
-    if (ph.externalId) {
-      candidate = await getElementById(ph.externalId);
-    } else {
-      // recompute if missing externalId
-      const best = await computeBestCandidate(ph);
-      candidate = best ? { ...best.candidate, score: best.score, distance_m: best.distance!=null?Math.round(best.distance):null } : null;
-    }
+let candidateLookupUnavailable = false;
 
-    res.json({ success:true, data: { pharmacy: ph, candidate } });
+try {
+  if (ph.externalId) {
+    candidate = await getElementById(ph.externalId);
+  } else {
+    const best = await computeBestCandidate(ph);
+
+    candidate = best
+      ? {
+          ...best.candidate,
+          score: best.score,
+          distance_m:
+            best.distance != null
+              ? Math.round(best.distance)
+              : null
+        }
+      : null;
+  }
+} catch (error) {
+  console.warn(
+    'External pharmacy lookup unavailable:',
+    error.message
+  );
+
+  candidate = null;
+  candidateLookupUnavailable = true;
+}
+
+    res.json({ success:true, data: { pharmacy: ph, candidate, candidateLookupUnavailable } });
   } catch (e) {
     res.status(500).json({ success:false, message:'Failed to get pharmacy detail' });
   }
@@ -108,16 +129,34 @@ async function approvePharmacy(req, res) {
       throw e;
     }
 
-    // Notify owner if exists
-    await notifyApproved(ph);
+    // Send notification without affecting the saved approval
+try {
+  await notifyApproved(ph);
+} catch (notificationError) {
+  console.error(
+    'Pharmacy approved, but owner notification failed:',
+    notificationError
+  );
+}
 
-    res.json({ success:true, data:{ pharmacyId: ph._id, verified: ph.verified } });
-  } catch (e) {
-    res.status(500).json({ success:false, message:'Failed to approve pharmacy' });
+res.json({
+  success: true,
+  data: {
+    pharmacyId: ph._id,
+    verified: ph.verified
+  }
+});
+    } catch (e) {
+    console.error('Failed to approve pharmacy:', e);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve pharmacy'
+    });
   }
 }
 
 // PUT /api/admin/pharmacies/:id/reject
+
 async function rejectPharmacy(req, res) {
   try {
     const ph = await Pharmacy.findById(req.params.id);
@@ -130,9 +169,23 @@ async function rejectPharmacy(req, res) {
     ph.auditTrail.push({ action: 'reject', admin: req.user?.id || null, note: reviewNote });
     await ph.save();
 
-    await notifyRejected(ph);
+// Notification failure must not change the saved rejection result
+try {
+  await notifyRejected(ph);
+} catch (notificationError) {
+  console.error(
+    'Pharmacy rejected, but owner notification failed:',
+    notificationError
+  );
+}
 
-    res.json({ success:true, data:{ pharmacyId: ph._id, verified: ph.verified } });
+res.json({
+  success: true,
+  data: {
+    pharmacyId: ph._id,
+    verified: ph.verified
+  }
+});
   } catch (e) {
     res.status(500).json({ success:false, message:'Failed to reject pharmacy' });
   }

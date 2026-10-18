@@ -290,28 +290,34 @@ app.get('/api/health', async (req, res) => {
 app.get('/api/stats', async (req, res) => {
   try {
     const User = require('./models/User');
-    const stats = await User.getHomePageStats();
-    
+    const Medicine = require('./models/Medicine');
+
+    const [stats, medicineCount] = await Promise.all([
+      User.getHomePageStats(),
+      Medicine.countDocuments()
+    ]);
+
     res.json({
       success: true,
       data: {
         totalUsers: stats.customers || 0,
         pharmacies: stats.verifiedPharmacies || 0,
-        medicines: 50000, // This would come from Medicine model when implemented
+        medicines: medicineCount,
         support: '24/7'
       },
       timestamp: new Date().toISOString(),
-      cached: false // Could implement caching later
+      cached: false
     });
   } catch (error) {
     console.error('Stats endpoint error:', error);
+
     res.status(500).json({
       success: false,
       message: 'Unable to fetch statistics',
       data: {
-        totalUsers: 10000,
-        pharmacies: 500,
-        medicines: 50000,
+        totalUsers: null,
+        pharmacies: null,
+        medicines: null,
         support: '24/7'
       }
     });

@@ -262,7 +262,7 @@ const AppContent = () => {
   path="/admin/pharmacies"
   element={
     user && (user.role === 'admin' || user.userType === 'admin') ? (
-      <AdminPharmacies />
+      <AdminPharmacies onLogout={handleLogout} />
     ) : (
       <Navigate to={user ? "/dashboard" : "/"} replace />
     )

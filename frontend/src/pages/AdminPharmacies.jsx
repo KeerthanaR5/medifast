@@ -11,7 +11,7 @@ import markerShadowUrl from 'leaflet/dist/images/marker-shadow.png';
 const DefaultIcon = L.icon({ iconRetinaUrl: markerIcon2xUrl, iconUrl: markerIconUrl, shadowUrl: markerShadowUrl, iconSize: [25, 41], iconAnchor: [12, 41] });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-export default function AdminPharmacies() {
+export default function AdminPharmacies({ onLogout }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -161,7 +161,32 @@ export default function AdminPharmacies() {
 
   return (
     <div className="dashboard-content" style={{ padding: 16 }}>
-      <h2>Admin  EPending Pharmacies</h2>
+            <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 20
+        }}
+      >
+        <h2 style={{ margin: 0 }}>Admin - Pending Pharmacies</h2>
+
+        <button
+          type="button"
+          onClick={onLogout}
+          style={{
+            backgroundColor: '#dc2626',
+            color: '#ffffff',
+            border: 'none',
+            borderRadius: 8,
+            padding: '10px 20px',
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
+          Logout
+        </button>
+      </div>
       {loading && <div>Loading…</div>}
       {error && <div style={{ color: '#dc2626' }}>{error}</div>}
       {!loading && !error && (

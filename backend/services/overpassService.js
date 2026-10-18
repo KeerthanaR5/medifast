@@ -1,11 +1,14 @@
-// Service to query Overpass API for pharmacies around a point
+﻿// Service to query Overpass API for pharmacies around a point
 // Uses Node 18+ global fetch
 
 const OVERPASS_ENDPOINTS = [
   'https://overpass.private.coffee/api/interpreter',
   'https://overpass-api.de/api/interpreter'
 ];
-
+// External pharmacy discovery can be disabled when Overpass is unavailable.
+function isOverpassEnabled() {
+  return process.env.OVERPASS_ENABLED !== 'false';
+}
 function validateSearchParameters(lat, lon, radiusMeters) {
   const isValidNumber = (value) =>
     (typeof value === 'number' ||
@@ -82,8 +85,13 @@ function mapOverpassElement(el) {
 }
 
 async function queryPharmacies(lat, lon, radiusMeters) {
-  const query = buildOverpassQuery(lat, lon, radiusMeters);
+  validateSearchParameters(lat, lon, radiusMeters);
 
+  if (!isOverpassEnabled()) {
+    return [];
+  }
+
+  const query = buildOverpassQuery(lat, lon, radiusMeters);
   let lastError;
 
   for (const endpoint of OVERPASS_ENDPOINTS) {
@@ -167,6 +175,9 @@ function _getCache(key) {
 
 async function queryNearbyCached(lat, lon, radiusMeters, ttlMs = undefined) {
   validateSearchParameters(lat, lon, radiusMeters);
+    if (!isOverpassEnabled()) {
+    return [];
+  }
   const envTtl = parseInt(process.env.OVERPASS_CACHE_TTL_SECONDS || '90', 10) * 1000;
   ttlMs = ttlMs ?? envTtl;
   const key = _makeKey(lat, lon, radiusMeters);
@@ -196,7 +207,10 @@ async getElementById(osmId) {
   if (!/^[1-9]\d*$/.test(id)) {
     throw new Error('Invalid OSM element ID');
   }
-
+  // Skip external OSM lookups when Overpass is disabled.
+  if (!isOverpassEnabled()) {
+    return null;
+  }
   const query = `
     [out:json][timeout:25];
     (

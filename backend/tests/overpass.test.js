@@ -29,7 +29,46 @@ describe('Overpass pharmacy lookup', () => {
     global.fetch = originalFetch;
     jest.restoreAllMocks();
   });
+  test('skips external requests when Overpass is disabled', async () => {
+    const previousValue = process.env.OVERPASS_ENABLED;
 
+    try {
+      process.env.OVERPASS_ENABLED = 'false';
+
+      const result = await overpass.queryPharmacies(
+        12.9716, 77.5946, 300
+      );
+
+      expect(result).toEqual([]);
+      expect(global.fetch).not.toHaveBeenCalled();
+    } finally {
+      if (previousValue === undefined) {
+        delete process.env.OVERPASS_ENABLED;
+      } else {
+        process.env.OVERPASS_ENABLED = previousValue;
+      }
+    }
+  });
+    test('skips cached searches when Overpass is disabled', async () => {
+    const previousValue = process.env.OVERPASS_ENABLED;
+
+    try {
+      process.env.OVERPASS_ENABLED = 'false';
+
+      const result = await overpass.queryNearbyCached(
+        12.9716, 77.5946, 300
+      );
+
+      expect(result).toEqual([]);
+      expect(global.fetch).not.toHaveBeenCalled();
+    } finally {
+      if (previousValue === undefined) {
+        delete process.env.OVERPASS_ENABLED;
+      } else {
+        process.env.OVERPASS_ENABLED = previousValue;
+      }
+    }
+  });
   test('returns mapped pharmacies when primary endpoint succeeds', async () => {
     global.fetch.mockResolvedValue(response(200, [pharmacy]));
 

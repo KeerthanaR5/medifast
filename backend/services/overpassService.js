@@ -98,7 +98,7 @@ async function queryPharmacies(lat, lon, radiusMeters) {
     'User-Agent': process.env.OVERPASS_USER_AGENT || 'MediFast/1.0'
   },
   body: new URLSearchParams({ data: query }),
-  signal: AbortSignal.timeout(25000)
+  signal: AbortSignal.timeout(5000)
 });
 
       if (!res.ok) {
@@ -221,7 +221,7 @@ async getElementById(osmId) {
           'User-Agent': process.env.OVERPASS_USER_AGENT || 'MediFast/1.0'
         },
         body: new URLSearchParams({ data: query }),
-        signal: AbortSignal.timeout(25000)
+        signal: AbortSignal.timeout(5000)
       });
 
       if (!res.ok) {

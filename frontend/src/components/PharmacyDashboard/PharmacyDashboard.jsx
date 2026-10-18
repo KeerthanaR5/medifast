@@ -16,7 +16,7 @@ export default function PharmacyDashboard({ onLogout }) {
   const pharmacyId = useMemo(() => data?.data?.pharmacy?._id || data?.pharmacy?._id, [data]);
 
   const loadDashboard = useCallback(async () => {
-    setLoading(true); setError('');
+    setError('');
     try {
       const resp = await pharmacyOwnerAPI.getDashboard();
       setData(resp);
@@ -38,33 +38,39 @@ export default function PharmacyDashboard({ onLogout }) {
   }, [loadDashboard]);
 
   const [profileForm, setProfileForm] = useState({});
+  const [profileDirty, setProfileDirty] = useState(false);
 
   useEffect(() => {
-    const ph = data?.data?.pharmacy || data?.pharmacy;
-    if (ph) {
-      setProfileForm({
-        name: ph.name || '',
-        contact_info: {
-          phone: ph.contact_info?.phone || '',
-          email: ph.contact_info?.email || '',
-          website: ph.contact_info?.website || ''
-        },
-        opening_hours: { ...ph.opening_hours },
-        address: { ...ph.address }
-      });
-    }
-  }, [data]);
+  const ph = data?.data?.pharmacy || data?.pharmacy;
+
+  if (ph && !profileDirty) {
+    setProfileForm({
+      name: ph.name || '',
+      contact_info: {
+        phone: ph.contact_info?.phone || '',
+        email: ph.contact_info?.email || '',
+        website: ph.contact_info?.website || ''
+      },
+      opening_hours: { ...ph.opening_hours },
+      address: { ...ph.address }
+    });
+  }
+}, [data, profileDirty]);
 
   const onProfileChange = (field, value) => {
+    setProfileDirty(true);
     setProfileForm((prev) => ({ ...prev, [field]: value }));
   };
   const onContactChange = (field, value) => {
+    setProfileDirty(true);
     setProfileForm((prev) => ({ ...prev, contact_info: { ...prev.contact_info, [field]: value } }));
   };
   const onHoursChange = (day, value) => {
+    setProfileDirty(true);
     setProfileForm((prev) => ({ ...prev, opening_hours: { ...prev.opening_hours, [day]: value } }));
   };
   const onAddressChange = (field, value) => {
+    setProfileDirty(true);
     setProfileForm((prev) => ({ ...prev, address: { ...prev.address, [field]: value } }));
   };
 
@@ -74,6 +80,7 @@ export default function PharmacyDashboard({ onLogout }) {
     try {
       await pharmacyOwnerAPI.updateProfile(pharmacyId, profileForm);
       await loadDashboard();
+      setProfileDirty(false);
       alert('Profile updated');
     } catch (e) {
       setError(e?.message || 'Failed to update profile');

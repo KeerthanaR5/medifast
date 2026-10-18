@@ -109,7 +109,7 @@ async function createPharmacy(overrides = {}) {
     contact_info: {
       phone: '9876543210'
     },
-    verified: 'auto',
+    verified: 'manual',
     ...overrides
   });
 }
@@ -706,7 +706,7 @@ const response = await request(app)
       expect(saved.verified).toBe('unverified');
     });
 
-    test('should automatically verify when Overpass match is strong', async () => {
+    test('should require admin approval even when Overpass match is strong', async () => {
       queryPharmacies.mockResolvedValue([
         {
           pharmacy_name: 'Apollo Pharmacy',
@@ -735,7 +735,7 @@ const response = await request(app)
 
       expect(response.statusCode).toBe(201);
       expect(response.body.success).toBe(true);
-      expect(response.body.data.verified).toBe('auto');
+      expect(response.body.data.verified).toBe('unverified');
 
       expect(response.body.data.matchCandidate).toBeDefined();
       expect(response.body.data.matchCandidate.osm_id)

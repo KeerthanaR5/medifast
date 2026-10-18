@@ -148,10 +148,14 @@ async function registerPharmacy(req, res) {
         threshold: THRESHOLD
       });
     }
-    const verified = best && best.score >= THRESHOLD ? 'auto' : 'unverified';
-    const externalId = verified === 'auto' ? String(best.candidate.osm_id) : undefined;
+        // All newly registered pharmacies require administrator approval.
+    const verified = 'unverified';
 
-    // Dedupe checks before creating a new doc
+    // Preserve a strong OpenStreetMap match for duplicate detection.
+    const externalId =
+      best && best.score >= THRESHOLD
+        ? String(best.candidate.osm_id)
+        : undefined;
     if (externalId) {
       const existingByExternal = await Pharmacy.findOne({ externalId });
       if (existingByExternal) {

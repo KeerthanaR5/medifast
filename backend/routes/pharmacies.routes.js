@@ -82,7 +82,7 @@ router.get('/:id/detail', async (req, res) => {
         pharmacy: {
           _id: ph._id,
           name: ph.name,
-          verified: ph.verified === true || ph.verified === 'manual' || ph.verified === 'auto',
+          verified: ph.verified === 'manual',
           contact_info: ph.contact_info || {},
           opening_hours: ph.opening_hours || null,
           address: ph.address || {},
@@ -170,7 +170,7 @@ router.get('/search-external', overpassLimiter, async (req, res) => {
           key: 'location'
         }
       },
-      { $match: { verified: { $in: ['auto', 'manual'] } } },
+      { $match: { verified: 'manual' } },
       { $project: { _id: 1, name: 1, coords: '$address.coordinates' } }
     ]);
 
@@ -298,7 +298,7 @@ router.get('/search-unified', async (req, res) => {
           key: 'address.coordinates'
         }
       },
-      { $match: { verified: { $in: ['auto', 'manual'] } } },
+      { $match: { verified: 'manual' } },
       {
         $lookup: {
           from: 'stocks',
@@ -494,7 +494,7 @@ router.get('/search', overpassLimiter, async (req, res) => {
             key: 'location'
           }
         },
-        { $match: { verified: { $in: ['auto','manual', true] } } },
+        { $match: { verified: 'manual' } },
         {
           $project: {
             _id: 1,
@@ -590,7 +590,7 @@ router.get('/search', overpassLimiter, async (req, res) => {
           key: 'location'
         }
       },
-      { $match: { verified: { $in: ['auto','manual', true] } } },
+      { $match: { verified: 'manual' } },
       {
         $lookup: {
           from: 'stocks',

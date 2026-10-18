@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Pharmacy = require('../models/Pharmacy');
 const User = require('../models/User');
 const { queryPharmacies, getElementById } = require('../services/overpassService');
@@ -23,7 +24,7 @@ async function listPending(req, res) {
     const items = await Pharmacy.find({
       $or: [
         { verified: 'unverified' },
-        { verified: 'auto', autoMatchScore: { $lt: SCORE_THRESHOLD } },
+        { verified: 'auto' }
       ]
     }).select({
       name: 1,
@@ -154,31 +155,55 @@ async function approvePharmacy(req, res) {
     });
 
     try {
-      await ph.save();
+      await mongoose.connection.transaction(async (session) => {
+        await ph.save({ session });
+
+        if (ph.owner) {
+          const result = await User.updateOne(
+            {
+              _id: ph.owner,
+              role: 'pharmacy'
+            },
+            {
+              $set: {
+                'pharmacyDetails.verified': true
+              }
+            },
+            { session }
+          );
+
+          if (result.matchedCount !== 1) {
+            throw new Error('Linked pharmacy owner not found');
+          }
+        }
+      });
     } catch (e) {
-      if (e && e.code === 11000 && e.keyPattern && e.keyPattern.externalId) {
-        return res.status(409).json({ success:false, message: 'ExternalId already linked to another pharmacy' });
+      if (e?.code === 11000 && e?.keyPattern?.externalId) {
+        return res.status(409).json({
+          success: false,
+          message: 'ExternalId already linked to another pharmacy'
+        });
       }
+
       throw e;
     }
+        // Send notification without affecting the saved approval
+    try {
+      await notifyApproved(ph);
+    } catch (notificationError) {
+      console.error(
+        'Pharmacy approved, but owner notification failed:',
+        notificationError
+      );
+    }
 
-    // Send notification without affecting the saved approval
-try {
-  await notifyApproved(ph);
-} catch (notificationError) {
-  console.error(
-    'Pharmacy approved, but owner notification failed:',
-    notificationError
-  );
-}
-
-res.json({
-  success: true,
-  data: {
-    pharmacyId: ph._id,
-    verified: ph.verified
-  }
-});
+    res.json({
+      success: true,
+      data: {
+        pharmacyId: ph._id,
+        verified: ph.verified
+      }
+    });
     } catch (e) {
     console.error('Failed to approve pharmacy:', e);
     res.status(500).json({
@@ -200,25 +225,46 @@ async function rejectPharmacy(req, res) {
     // Audit entry
     ph.auditTrail = ph.auditTrail || [];
     ph.auditTrail.push({ action: 'reject', admin: req.user?.id || null, note: reviewNote });
-    await ph.save();
+    // Atomically reject the pharmacy and revoke owner verification
+    await mongoose.connection.transaction(async (session) => {
+      await ph.save({ session });
 
-// Notification failure must not change the saved rejection result
-try {
-  await notifyRejected(ph);
-} catch (notificationError) {
-  console.error(
-    'Pharmacy rejected, but owner notification failed:',
-    notificationError
-  );
-}
+      if (ph.owner) {
+        const result = await User.updateOne(
+          {
+            _id: ph.owner,
+            role: 'pharmacy'
+          },
+          {
+            $set: {
+              'pharmacyDetails.verified': false
+            }
+          },
+          { session }
+        );
 
-res.json({
-  success: true,
-  data: {
-    pharmacyId: ph._id,
-    verified: ph.verified
-  }
-});
+        if (result.matchedCount !== 1) {
+          throw new Error('Linked pharmacy owner not found');
+        }
+      }
+    });
+    // Notification failure must not change the saved rejection result
+    try {
+      await notifyRejected(ph);
+    } catch (notificationError) {
+      console.error(
+        'Pharmacy rejected, but owner notification failed:',
+        notificationError
+      );
+    }
+
+    res.json({
+      success: true,
+      data: {
+        pharmacyId: ph._id,
+        verified: ph.verified
+      }
+    });
   } catch (e) {
     res.status(500).json({ success:false, message:'Failed to reject pharmacy' });
   }

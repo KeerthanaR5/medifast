@@ -143,6 +143,27 @@ export default function AdminPharmacies() {
             <div style={{ color: '#6b7280' }}>{detail.pharmacy?.addressNormalized}</div>
             <div><b>Verified:</b> {detail.pharmacy?.verified} {detail.pharmacy?.externalId ? `(extId ${detail.pharmacy.externalId})` : ''}</div>
             <div><b>License:</b> {detail.pharmacy?.licenseNumber || '—'}</div>
+            {detail.candidateLookupUnavailable && (
+  <div
+    role="alert"
+    style={{
+      padding: '12px 16px',
+      backgroundColor: '#fff7ed',
+      border: '1px solid #fdba74',
+      borderRadius: '8px',
+      color: '#9a3412',
+      fontSize: '14px',
+      lineHeight: '1.5'
+    }}
+  >
+    <strong>External verification unavailable</strong>
+    <div>
+      The external pharmacy matching service could not be reached.
+      This pharmacy has not been independently verified.
+      Verify its license and ownership before approving.
+    </div>
+  </div>
+)}
             {mapView(detail.pharmacy, detail.candidate)}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto auto', gap: 8, alignItems: 'end' }}>
               <div>

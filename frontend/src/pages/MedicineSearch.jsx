@@ -71,7 +71,7 @@ export default function MedicineSearch() {
         coordinates: r.coordinates,
         stock: r.stock ? { ...r.stock, quantity: r.stock.qty ?? r.stock.quantity ?? 0 } : null
       })) : [];
-      setSearch({ loading: false, error: '', results });
+      setSearch({ loading: false, error: '', notice: unified.data?.notice || '', results });
     } catch (e) {
       setSearch({ loading: false, error: e?.message || 'Search failed', results: [] });
     }
@@ -256,6 +256,7 @@ export default function MedicineSearch() {
             Use Demo Location (JP Nagar, Bengaluru)
           </label>
 
+          {search.notice && <div style={{ color: '#92400e', fontSize: 13, marginTop: 8 }}>{search.notice}</div>}
           {search.error && <div style={{ color:'#b00020', fontSize:13, marginTop:6 }}>{search.error}</div>}
           {search.results.length > 0 && (
             <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>

@@ -56,6 +56,7 @@ export default function MedicineSearch() {
       const la = useDemoLocation ? 12.882625 : parseFloat(lat);
       const lo = useDemoLocation ? 77.583950 : parseFloat(lon);
       if (!medicine.trim()) { setSearch({ loading: false, error: 'Please enter a medicine name', results: [] }); return; }
+      if (!Number.isFinite(radiusKm) || radiusKm < 1 || radiusKm > 20) { setSearch({ loading: false, error: 'Search radius must be between 1 and 20 km', results: [] }); return; }
       if (!Number.isFinite(la) || !Number.isFinite(lo)) { setSearch({ loading: false, error: 'Please set your location first', results: [] }); return; }
 
       const unified = await api.get('/pharmacies/search', { params: { medicine: medicine.trim(), lat: la, lon: lo, radius: Math.round(radiusKm * 1000), source: source || 'unknown' } });

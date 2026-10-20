@@ -1,4 +1,15 @@
 const express = require('express');
+const mongoose = require('mongoose');
+
+// Allow fictional demo pharmacies only in the isolated demo database.
+const searchablePharmacyFilter = () =>
+  isDemoDatabase()
+    ? { verified: { $in: ['manual', 'demo'] } }
+    : { verified: 'manual' };
+
+const isDemoDatabase = () =>
+  process.env.NODE_ENV !== 'production' &&
+  mongoose.connection.name === 'medifast_demo';
 const router = express.Router();
 const { queryPharmacies, queryNearbyCached } = require('../services/overpassService');
 const rateLimit = require('express-rate-limit');
@@ -83,6 +94,7 @@ router.get('/:id/detail', async (req, res) => {
           _id: ph._id,
           name: ph.name,
           verified: ph.verified === 'manual',
+          demo: ph.verified === 'demo',
           contact_info: ph.contact_info || {},
           opening_hours: ph.opening_hours || null,
           address: ph.address || {},
@@ -115,7 +127,7 @@ router.get('/:id/detail', async (req, res) => {
   }
 });
 
-// POST /api/pharmacies/register — registration with auto-match
+// POST /api/pharmacies/register - registration with auto-match
 router.post('/register', authenticateToken, requireRoles('pharmacy', 'admin'), registerPharmacy);
 
 router.get('/nearby', overpassLimiter, async (req, res) => {
@@ -232,7 +244,7 @@ router.get('/search-external', overpassLimiter, async (req, res) => {
       osm_id: p.osm_id
     }));
 
-    // 5) Optional: inject 1–2 demo stock entries to make UI look uniform (MVP)
+    // 5) Optional: inject 1-2 demo stock entries to make UI look uniform (MVP)
     if (demo && responseItems.length > 0) {
       const injectCount = Math.min(2, responseItems.length);
       for (let i = 0; i < injectCount; i++) {
@@ -298,7 +310,7 @@ router.get('/search-unified', async (req, res) => {
           key: 'address.coordinates'
         }
       },
-      { $match: { verified: 'manual' } },
+      { $match: searchablePharmacyFilter() },
       {
         $lookup: {
           from: 'stocks',
@@ -366,7 +378,8 @@ router.get('/search-unified', async (req, res) => {
       const base = {
         pharmacy_id: p.pharmacy_id,
         name: p.name,
-        verified: true,
+        verified: p.verified === 'manual',
+        demo: p.verified === 'demo',
         distance_m: p.distance,
         open_now,
         address: p.address,
@@ -494,7 +507,7 @@ router.get('/search', overpassLimiter, async (req, res) => {
             key: 'location'
           }
         },
-        { $match: { verified: 'manual' } },
+        { $match: searchablePharmacyFilter() },
         {
           $project: {
             _id: 1,
@@ -526,7 +539,8 @@ router.get('/search', overpassLimiter, async (req, res) => {
         name: v.name,
         lat: v.coordinates?.lat ?? null,
         lon: v.coordinates?.lon ?? null,
-        verified: true,
+        verified: v.verified === 'manual',
+        demo: v.verified === 'demo',
         distance_m: v.distance,
         open_now: null,
         stock: null,
@@ -590,7 +604,7 @@ router.get('/search', overpassLimiter, async (req, res) => {
           key: 'location'
         }
       },
-      { $match: { verified: 'manual' } },
+      { $match: searchablePharmacyFilter() },
       {
         $lookup: {
           from: 'stocks',
@@ -700,7 +714,8 @@ router.get('/search', overpassLimiter, async (req, res) => {
         name: v.name,
         lat: v.coordinates?.lat ?? null,
         lon: v.coordinates?.lon ?? null,
-        verified: true,
+        verified: v.verified === 'manual',
+        demo: v.verified === 'demo',
         distance_m: v.distance,
         open_now,
         stock: v.stock ? { medicine: v.stock.medicine, qty: v.stock.quantity, unitPrice: v.stock.unitPrice } : null,

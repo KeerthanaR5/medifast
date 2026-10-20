@@ -9,6 +9,7 @@ export default function MedicineSearch() {
   const navigate = useNavigate();
   const [medicine, setMedicine] = useState('');
   const [radiusKm, setRadiusKm] = useState(3);
+  const [useDemoLocation, setUseDemoLocation] = useState(false);
   const [search, setSearch] = useState({ loading: false, error: '', results: [] });
   const [areaQuery, setAreaQuery] = useState('');
   const [areaSuggestions, setAreaSuggestions] = useState([]);
@@ -52,8 +53,8 @@ export default function MedicineSearch() {
   const runSearch = async () => {
     try {
       setSearch({ loading: true, error: '', results: [] });
-      const la = parseFloat(lat);
-      const lo = parseFloat(lon);
+      const la = useDemoLocation ? 12.882625 : parseFloat(lat);
+      const lo = useDemoLocation ? 77.583950 : parseFloat(lon);
       if (!medicine.trim()) { setSearch({ loading: false, error: 'Please enter a medicine name', results: [] }); return; }
       if (!Number.isFinite(la) || !Number.isFinite(lo)) { setSearch({ loading: false, error: 'Please set your location first', results: [] }); return; }
 
@@ -63,11 +64,12 @@ export default function MedicineSearch() {
         pharmacy_id: r.pharmacy_id ?? null,
         name: r.name,
         verified: !!r.verified,
+        demo: r.demo === true,
         distance_m: r.distance ?? r.distance_m ?? null,
         open_now: r.open_now ?? null,
         address: r.address,
         coordinates: r.coordinates,
-        stock: r.stock || null
+        stock: r.stock ? { ...r.stock, quantity: r.stock.qty ?? r.stock.quantity ?? 0 } : null
       })) : [];
       setSearch({ loading: false, error: '', results });
     } catch (e) {
@@ -151,7 +153,7 @@ export default function MedicineSearch() {
               <button className="welcome-action outline" onClick={handleUseMyLocation} disabled={!geoSupported}><MapPin size={16}/> {geoSupported ? 'Use My Location' : 'Geolocation not supported'}</button>
               {(!geoSupported) && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>Enter your area (e.g., Koramangala)</div>}
               <input className="qa-input" placeholder="Type locality, area, city..." value={areaQuery} onChange={(e)=> onAreaChange(e.target.value)} />
-              {areaLoading && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>Searching…</div>}
+              {areaLoading && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 6 }}>Searching...</div>}
               {areaSuggestions.length > 0 && (
                 <div className="db-card" style={{ padding: 8, marginTop: 6 }}>
                   {areaSuggestions.map((s, i) => (
@@ -164,9 +166,9 @@ export default function MedicineSearch() {
             </div>
           )}
 
-          {hasLocation && (
+          {(hasLocation || useDemoLocation) && (
             <div style={{ marginBottom: 8, fontSize: 12, color: '#6b7280' }}>
-              Using coordinates: {lat}, {lon} {typeof accuracy === 'number' ? `(±${Math.round(accuracy)} m)` : ''} {source ? `• ${source}` : ''}
+              Search coordinates: {useDemoLocation ? '12.882625, 77.583950 (Demo Location)' : `${lat}, ${lon}`} {!useDemoLocation && typeof accuracy === 'number' ? `(accuracy: ${Math.round(accuracy)} m)` : ''} {!useDemoLocation && source ? ` | Source: ${source}` : ''}
             </div>
           )}
 
@@ -239,11 +241,20 @@ export default function MedicineSearch() {
                 </div>
               )}
             </div>
-            <button className="welcome-action" onClick={runSearch} disabled={search.loading}><Search size={16}/> {search.loading ? 'Searching…' : 'Search'}</button>
+            <button className="welcome-action" onClick={runSearch} disabled={search.loading}><Search size={16}/> {search.loading ? 'Searching...' : 'Search'}</button>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap: 8, marginBottom: 8 }}>
             <input className="qa-input" type="number" min={1} max={20} step={1} placeholder="Radius (km)" value={radiusKm} onChange={(e)=> setRadiusKm(Number(e.target.value))} />
           </div>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+            <input
+              type="checkbox"
+              checked={useDemoLocation}
+              onChange={(e) => setUseDemoLocation(e.target.checked)}
+            />
+            Use Demo Location (JP Nagar, Bengaluru)
+          </label>
 
           {search.error && <div style={{ color:'#b00020', fontSize:13, marginTop:6 }}>{search.error}</div>}
           {search.results.length > 0 && (
@@ -252,21 +263,34 @@ export default function MedicineSearch() {
                 <div key={(r.pharmacy_id||'ext')+idx} className="db-card" style={{ padding: 12 }}>
                   <div style={{ display:'flex', justifyContent:'space-between' }}>
                     <strong>{r.name}</strong>
-                    <span title={r.verified ? 'Verified' : 'Unverified'}>{r.verified ? '✅' : '❔'}</span>
+                    <span title={r.demo ? 'Demo Pharmacy' : r.verified ? 'Verified' : 'Unverified'}>{r.demo ? 'Demo' : r.verified ? 'Verified' : 'Unverified'}</span>
                   </div>
                   <div style={{ fontSize: 13, color:'#6b7280' }}>
                     {Number.isFinite(r.distance_m) ? `${Math.round(r.distance_m)} m` : ''}
-                    {r.verified ? ' • Verified' : ' • Unverified'}
-                    {r.stock?.quantity != null ? ` • Qty: ${r.stock.quantity}` : ''}
+                    {r.demo ? ' | Demo Pharmacy' : r.verified ? ' | Verified' : ' | Unverified'}
                   </div>
                   <div style={{ fontSize: 12, color:'#6b7280', marginTop: 4 }}>
                     {r.address?.street ? `${r.address.street}, ` : ''}{r.address?.city || ''} {r.address?.postcode || ''}
                   </div>
+                  {r.stock && (
+                    <div style={{ marginTop: 8, fontSize: 13, color: '#374151' }}>
+                      <strong>{r.demo ? 'Demo Medicine Stock:' : 'Medicine Stock:'}</strong>{' '}
+                      {r.stock.quantity ?? 0} tablets
+                      {' | '}
+                      <strong>Unit Price:</strong>{' '}
+                      ₹{Number(r.stock.unitPrice ?? 0).toFixed(2)}
+                      {r.demo && (
+                        <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>
+                          Demonstration inventory only — not verified real-world availability.
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {r.verified && r.pharmacy_id && (
                     <div style={{ marginTop: 8, display:'flex', gap:8 }}>
                       {r.stock?.quantity > 0 && r.stock?.medicine && (
                         <button className="welcome-action" onClick={() => handleReserve(r)} disabled={reserveBusyId === r.pharmacy_id}>
-                          {reserveBusyId === r.pharmacy_id ? 'Reserving…' : 'Reserve for Pickup'}
+                          {reserveBusyId === r.pharmacy_id ? 'Reserving...' : 'Reserve for Pickup'}
                         </button>
                       )}
                       <button className="welcome-action outline" onClick={() => openDetail(r)}>Details</button>

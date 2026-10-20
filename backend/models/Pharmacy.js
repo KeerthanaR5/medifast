@@ -60,7 +60,7 @@ const PharmacySchema = new mongoose.Schema({
   // Verification lifecycle
   verified: {
     type: String,
-    enum: ['unverified', 'auto', 'manual', 'rejected'],
+    enum: ['unverified', 'auto', 'manual', 'demo', 'rejected'],
     default: 'unverified',
     index: true
   },

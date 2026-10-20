@@ -65,7 +65,7 @@ export function LocationProvider({ children }) {
 
   const fetchAreaSuggestions = async (q) => {
     if (!q || q.trim().length < 3) return [];
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5`;
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q.trim() + ', Bengaluru, Karnataka')}&countrycodes=in&limit=5`;
     try {
       const resp = await fetch(url, { headers: { Accept: 'application/json' } });
       const data = await resp.json();

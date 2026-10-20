@@ -72,7 +72,7 @@ export default function MedicineSearch() {
         coordinates: r.coordinates,
         stock: r.stock ? { ...r.stock, quantity: r.stock.qty ?? r.stock.quantity ?? 0 } : null
       })) : [];
-      setSearch({ loading: false, error: '', notice: unified.data?.notice || '', results });
+      setSearch({ loading: false, error: '', notice: unified.data?.notice || '', hasSearched: true, results });
     } catch (e) {
       setSearch({ loading: false, error: e?.message || 'Search failed', results: [] });
     }
@@ -259,6 +259,11 @@ export default function MedicineSearch() {
 
           {search.notice && <div style={{ color: '#92400e', fontSize: 13, marginTop: 8 }}>{search.notice}</div>}
           {search.error && <div style={{ color:'#b00020', fontSize:13, marginTop:6 }}>{search.error}</div>}
+          {!search.loading && !search.error && search.results.length === 0 && search.hasSearched && (
+            <div style={{ color: '#6b7280', fontSize: 13, marginTop: 12 }}>
+              No pharmacies found within the selected search radius. Try increasing the radius or changing your location.
+            </div>
+          )}
           {search.results.length > 0 && (
             <div style={{ marginTop: 12, display: 'grid', gap: 10 }}>
               {search.results.map((r, idx) => (

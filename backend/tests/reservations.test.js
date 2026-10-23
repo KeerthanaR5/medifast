@@ -345,3 +345,62 @@ test('demo pharmacy cannot accept reservations or reduce stock', async () => {
 
   expect(reservationCount).toBe(0);
 });
+
+test('canceling a pending reservation restores stock', async () => {
+  const patient = await User.create({
+    fullName: 'Cancellation Test Patient',
+    email: 'cancellation.patient@example.com',
+    password: 'Test@1234',
+    phone: '9876543218',
+    role: 'customer'
+  });
+
+  const pharmacy = await Pharmacy.create({
+    name: 'Cancellation Test Pharmacy',
+    verified: 'manual',
+    location: {
+      type: 'Point',
+      coordinates: [77.5946, 12.9716]
+    }
+  });
+
+  const stock = await Stock.create({
+    pharmacy: pharmacy._id,
+    medicineName: 'Paracetamol 500mg',
+    quantity: 98,
+    unitPrice: 5.5
+  });
+
+  const reservation = await Reservation.create({
+    user: patient._id,
+    stock: stock._id,
+    quantity: 2,
+    status: 'pending',
+    expiresAt: new Date(Date.now() + 120 * 60 * 1000)
+  });
+
+  const login = await request(app)
+    .post('/api/auth/login')
+    .send({
+      email: patient.email,
+      password: 'Test@1234'
+    });
+
+  expect(login.statusCode).toBe(200);
+
+  const token = login.body.data?.accessToken ||
+    login.body.accessToken || login.body.token;
+
+  const response = await request(app)
+    .patch(`/api/reservations/${reservation._id}/cancel`)
+    .set('Authorization', `Bearer ${token}`);
+
+  expect(response.statusCode).toBe(200);
+  expect(response.body.data.status).toBe('canceled');
+
+  const updatedReservation = await Reservation.findById(reservation._id);
+  expect(updatedReservation.status).toBe('canceled');
+
+  const updatedStock = await Stock.findById(stock._id);
+  expect(updatedStock.quantity).toBe(100);
+});

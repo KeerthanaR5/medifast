@@ -166,7 +166,13 @@ async function cancelReservation(req, res) {
     if (!canCancelAsUser && !canCancelAsOwner) {
       return res.status(403).json({ success: false, message: 'Not authorized to cancel' });
     }
-
+        // A reservation cannot be canceled after medicine pickup.
+    if (r.status === 'picked_up') {
+      return res.status(400).json({
+        success: false,
+        message: 'A picked-up reservation cannot be canceled'
+      });
+    }
     if (r.status === 'pending') {
       // Try to set to canceled only if still pending
       const updated = await Reservation.findOneAndUpdate(

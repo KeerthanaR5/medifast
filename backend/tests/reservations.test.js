@@ -1,4 +1,4 @@
-const request = require('supertest');
+﻿const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
@@ -293,7 +293,7 @@ test('demo pharmacy cannot accept reservations or reduce stock', async () => {
     fullName: 'Demo Restriction Patient',
     email: 'demo.restriction@example.com',
     password: 'Test@1234',
-    phone: '9876543217',
+    phone: '9876543220',
     role: 'customer'
   });
 
@@ -404,3 +404,63 @@ test('canceling a pending reservation restores stock', async () => {
   const updatedStock = await Stock.findById(stock._id);
   expect(updatedStock.quantity).toBe(100);
 });
+
+test('a picked-up reservation cannot be canceled', async () => {
+  const patient = await User.create({
+    fullName: 'Pickup Cancellation Patient',
+    email: 'pickup.cancel.patient@example.com',
+    password: 'Test@1234',
+    phone: String(Date.now()).slice(-10),
+    role: 'customer'
+  });
+
+  const pharmacy = await Pharmacy.create({
+    name: 'Pickup Cancellation Test Pharmacy',
+    verified: 'manual',
+    location: {
+      type: 'Point',
+      coordinates: [77.5946, 12.9716]
+    }
+  });
+
+  const stock = await Stock.create({
+    pharmacy: pharmacy._id,
+    medicineName: 'Paracetamol 500mg',
+    quantity: 98,
+    unitPrice: 5.5
+  });
+
+  const reservation = await Reservation.create({
+    user: patient._id,
+    stock: stock._id,
+    quantity: 2,
+    status: 'picked_up',
+    expiresAt: new Date(Date.now() + 120 * 60 * 1000)
+  });
+
+  const login = await request(app)
+    .post('/api/auth/login')
+    .send({
+      email: patient.email,
+      password: 'Test@1234'
+    });
+
+  expect(login.statusCode).toBe(200);
+
+  const token = login.body.data?.accessToken ||
+    login.body.accessToken || login.body.token;
+
+  const response = await request(app)
+    .patch(`/api/reservations/${reservation._id}/cancel`)
+    .set('Authorization', `Bearer ${token}`);
+
+  expect(response.statusCode).toBe(400);
+
+  const updatedReservation = await Reservation.findById(reservation._id);
+  expect(updatedReservation.status).toBe('picked_up');
+
+  const updatedStock = await Stock.findById(stock._id);
+  expect(updatedStock.quantity).toBe(98);
+});
+
+

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import api from '../../services/api';
 import { pharmacyOwnerAPI } from '../../services/api';
 import { useLocationContext } from '../../contexts/LocationContext';
@@ -84,15 +84,22 @@ export default function StockManager({ pharmacyId: propPharmacyId }) {
   const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 });
 
   useEffect(() => {
+    let cancelled = false;
+
     async function ensurePharmacy() {
+      if (pharmacyId && pharmacy?._id === pharmacyId) return;
+
       setLoading(true);
       setError(null);
+
       try {
         if (!pharmacyId) {
-          // Try to fetch my pharmacy (owner)
           try {
             const res = await api.get('/pharmacies/mine');
+            if (cancelled) return;
+
             const ph = res.data?.data || null;
+
             if (ph) {
               setPharmacyId(ph._id);
               setPharmacy(ph);
@@ -100,6 +107,8 @@ export default function StockManager({ pharmacyId: propPharmacyId }) {
               setError('No pharmacy found. Please register your pharmacy first.');
             }
           } catch (e) {
+            if (cancelled) return;
+
             if (e?.response?.status === 404) {
               setError(
                 <div>
@@ -110,23 +119,32 @@ export default function StockManager({ pharmacyId: propPharmacyId }) {
               setError(e?.response?.data?.message || 'Failed to load pharmacy information');
             }
           }
-        }
-        if (pharmacyId && !pharmacy) {
+        } else if (pharmacy?._id !== pharmacyId) {
           try {
             const res = await api.get(`/pharmacies/${pharmacyId}`);
+            if (cancelled) return;
+
             setPharmacy(res.data?.data || null);
           } catch (e) {
+            if (cancelled) return;
+
             setError(e?.response?.data?.message || 'Failed to load pharmacy details');
           }
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
-    ensurePharmacy();
-  }, [pharmacyId]);
 
-  async function refreshStock() {
+    ensurePharmacy();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pharmacyId, pharmacy]);
+  const refreshStock = useCallback(async () => {
     if (!pharmacyId) return;
     setLoading(true);
     setError(null);
@@ -138,9 +156,9 @@ export default function StockManager({ pharmacyId: propPharmacyId }) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [pharmacyId]);
 
-  useEffect(() => { if (pharmacyId) refreshStock(); }, [pharmacyId]);
+  useEffect(() => { if (pharmacyId) refreshStock(); }, [pharmacyId, refreshStock]);
 
   async function onSaveItem() {
     if (!pharmacyId) return;

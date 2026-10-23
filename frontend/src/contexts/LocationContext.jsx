@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useMemo, useState } from 'react';
 
 const STORAGE_KEY = 'mf_location_state_v1';
 
@@ -36,11 +36,11 @@ export function LocationProvider({ children }) {
     } catch {}
   }, [state]);
 
-  const setLocation = (next) => {
+  const setLocation = useCallback((next) => {
     setState((prev) => ({ ...prev, ...next }));
-  };
+  }, []);
 
-  const getHighAccuracy = async (opts = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }) => {
+  const getHighAccuracy = useCallback(async (opts = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }) => {
     if (!geoSupported) return null;
     return new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(
@@ -56,14 +56,18 @@ export function LocationProvider({ children }) {
           resolve(upd);
         },
         (err) => {
+          console.error('[MediFast GPS] Location request failed:', {
+            code: err.code,
+            message: err.message
+          });
           resolve(null);
         },
         opts
       );
     });
-  };
+  }, [geoSupported]);
 
-  const fetchAreaSuggestions = async (q) => {
+  const fetchAreaSuggestions = useCallback(async (q) => {
     if (!q || q.trim().length < 3) return [];
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q.trim() + ', Bengaluru, Karnataka')}&countrycodes=in&limit=5`;
     try {
@@ -76,9 +80,9 @@ export function LocationProvider({ children }) {
     } catch {
       return [];
     }
-  };
+  }, []);
 
-  const selectArea = (sugg) => {
+  const selectArea = useCallback((sugg) => {
     setState((prev) => ({
       ...prev,
       lat: Number(sugg.lat.toFixed(6)),
@@ -86,7 +90,7 @@ export function LocationProvider({ children }) {
       accuracy: null,
       source: 'manual',
     }));
-  };
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -97,7 +101,7 @@ export function LocationProvider({ children }) {
       fetchAreaSuggestions,
       selectArea,
     }),
-    [state, geoSupported]
+    [state, geoSupported, setLocation, getHighAccuracy, fetchAreaSuggestions, selectArea]
   );
 
   return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;

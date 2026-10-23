@@ -21,7 +21,7 @@ const AuthModal = ({
     phone: '',
     userType: 'patient'
   });
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);

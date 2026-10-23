@@ -154,7 +154,6 @@ export default function PharmacyDashboard({ onLogout }) {
   const recent = payload.reservations?.recent || [];
   const counts = payload.reservations?.counts || {};
   const analytics = payload.analytics || {};
-  const pending = recent.filter(r => r.status === 'pending').slice(0, 5);
 
   return (
     <div className="dashboard-content" style={{ padding: 16 }}>

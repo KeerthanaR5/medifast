@@ -8,6 +8,7 @@ import {
 import './Dashboard.css';
 import { useLocationContext } from '../../contexts/LocationContext';
 
+// eslint-disable-next-line no-unused-vars
 function CalendarCard() {
   const [date, setDate] = useState(new Date());
   const days = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -70,6 +71,7 @@ function WelcomeCard({ user, onGoToSearch, setActiveTab }) {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
 function StatCard({ title, value, change, icon: Icon, trend, accent }) {
   return (
     <div className="db-card stat">
@@ -114,6 +116,7 @@ function QuickActions({ setActiveTab, onGoToSearch, onGoToReservations }) {
   );
 }
 
+// eslint-disable-next-line no-unused-vars
 function PopularMedicinesGallery({ popularMedicines }) {
   return (
     <section className="popmed">
@@ -175,12 +178,16 @@ const Dashboard = ({ user, onLogout }) => {
   const [areaSuggestions, setAreaSuggestions] = useState([]);
   const [areaLoading, setAreaLoading] = useState(false);
 
-  // High-accuracy geolocation on mount via context
+  // Request GPS only when no location has been selected.
   useEffect(() => {
-    if (!geoSupported) return;
-    getHighAccuracy({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [geoSupported]);
+    if (!geoSupported || (lat !== '' && lon !== '')) return;
+
+    getHighAccuracy({
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0
+    });
+  }, [geoSupported, lat, lon, getHighAccuracy]);
 
   const handleUseMyLocation = async () => {
     await getHighAccuracy({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });

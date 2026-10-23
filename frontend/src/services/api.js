@@ -698,9 +698,9 @@ export const setAuthData = (token, user) => {
 // ENHANCED DEFAULT EXPORT
 // ===============================================
 
-const enhancedAPI = {
+const enhancedAPI = Object.assign(api, {
   // Original axios instance
-  ...api,
+  // Preserve Axios instance methods and interceptors.
   
   // Organized API modules
   auth: authAPI,
@@ -722,6 +722,8 @@ const enhancedAPI = {
   
   // Direct exports for backward compatibility
   healthCheck
-};
+});
 
 export default enhancedAPI;
+
+

@@ -37,6 +37,20 @@ async function createReservation(req, res) {
       return res.status(400).json({ success: false, message: 'Provide medicineId or medicineName and a positive whole-number quantity' });
     }
 
+    // Reservations are allowed only at manually verified pharmacies.
+    const pharmacy = await Pharmacy.findById(pharmacyId).select('verified');
+
+    if (!pharmacy) {
+      return res.status(404).json({ success: false, message: 'Pharmacy not found' });
+    }
+
+    if (pharmacy.verified !== 'manual') {
+      return res.status(403).json({
+        success: false,
+        message: 'Reservations are available only at verified pharmacies'
+      });
+    }
+
     const stockDoc = await findStockDoc({ pharmacyId, medicineId, medicineName });
     if (!stockDoc) {
       return res.status(404).json({ success: false, message: 'Stock item not found' });

@@ -46,6 +46,16 @@ export default function PharmacyDetailPage() {
   };
 
   const onReserve = async () => {
+    if (!api.utils.isAuthenticated()) {
+      alert('Please log in with a customer account to make a reservation.');
+      window.location.href = '/login';
+      return;
+    }
+    const currentUser = api.utils.getCurrentUser();
+    if (currentUser && currentUser.role && currentUser.role !== 'customer') {
+      alert(`You are logged in as '${currentUser.role}'. Reservations can only be placed by customer accounts. Please log in with a customer account.`);
+      return;
+    }
     if (!stock || !ph?._id) return;
     const max = Number(stock.quantity) || 0;
     const qty = Number(reserveQty);
@@ -56,17 +66,19 @@ export default function PharmacyDetailPage() {
     try {
       setReserveBusy(true);
       const body = { pharmacyId: ph._id, quantity: qty };
-      if (stock.medicine?._id || typeof stock.medicine === 'string') {
+      if (stock.medicine?._id || (typeof stock.medicine === 'string' && stock.medicine)) {
         body.medicineId = stock.medicine._id || stock.medicine;
-      } else if (stock.medicineName) {
-        body.medicineName = stock.medicineName;
-      } else if (medicine) {
-        body.medicineName = medicine;
+      }
+      if (stock.medicineName || medicine) {
+        body.medicineName = stock.medicineName || medicine;
       }
       await api.post('/reservations', body);
       alert('Reservation created successfully! You can track it in My Reservations.');
+      // Refresh page to update stock count
+      window.location.reload();
     } catch (e) {
-      alert(e?.response?.data?.message || 'Failed to create reservation');
+      const msg = e?.data?.message || e?.message || e?.response?.data?.message || 'Failed to create reservation';
+      alert(msg);
     } finally { setReserveBusy(false); }
   };
   const onFileChange = (e) => {

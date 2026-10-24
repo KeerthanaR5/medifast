@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Reservation = require('../models/Reservation');
 const Stock = require('../models/Stock');
 const Pharmacy = require('../models/Pharmacy');
+const Medicine = require('../models/Medicine');
 
 const TTL_MINUTES = parseInt(process.env.RESERVATION_TTL_MINUTES || '120', 10);
 
@@ -13,9 +14,35 @@ function isOwnerOrAdmin(user, pharmacy) {
 async function findStockDoc({ pharmacyId, medicineId, medicineName }) {
   const filter = { pharmacy: pharmacyId };
   if (medicineId) {
-    filter.medicine = medicineId;
+    if (mongoose.isValidObjectId(medicineId)) {
+      const medDoc = await Medicine.findById(medicineId).lean();
+      if (medDoc) {
+        const escapedName = (medDoc.name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedGen = (medDoc.generic_name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        filter.$or = [
+          { medicine: medicineId },
+          { medicineName: new RegExp(`^${escapedName}$`, 'i') },
+          { medicineName: new RegExp(`^${escapedGen}$`, 'i') }
+        ];
+      } else {
+        filter.medicine = medicineId;
+      }
+    } else {
+      filter.medicine = medicineId;
+    }
   } else if (medicineName) {
-    filter.medicineName = medicineName.trim();
+    const trimmed = String(medicineName).trim();
+    const escaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    filter.$or = [{ medicineName: new RegExp(`^${escaped}$`, 'i') }];
+    const medDoc = await Medicine.findOne({
+      $or: [
+        { name: new RegExp(`^${escaped}$`, 'i') },
+        { generic_name: new RegExp(`^${escaped}$`, 'i') }
+      ]
+    }).lean();
+    if (medDoc) {
+      filter.$or.push({ medicine: medDoc._id });
+    }
   } else {
     return null;
   }
@@ -189,23 +216,25 @@ async function cancelReservation(req, res) {
         { $inc: { quantity: r.quantity }, $set: { lastUpdated: new Date() } }
       );
       return res.json({ success: true, data: { id: updated._id, status: updated.status } });
-    } else {
-      // No stock change for non-pending
-      if (r.status === 'canceled' || r.status === 'expired') {
-        return res.json({ success: true, data: { id: r._id, status: r.status } });
-      }
+    } else if (r.status === 'confirmed') {
       const updated = await Reservation.findOneAndUpdate(
-        { _id: r._id },
+        { _id: r._id, status: 'confirmed' },
         { $set: { status: 'canceled' } },
         { new: true }
       );
-      if (r.status === 'confirmed') {
-        await Stock.updateOne(
-          { _id: r.stock._id },
-          { $inc: { quantity: r.quantity }, $set: { lastUpdated: new Date() } }
-        );
+      if (!updated) {
+        return res.status(409).json({ success: false, message: 'Reservation status changed, retry' });
       }
+      await Stock.updateOne(
+        { _id: r.stock._id },
+        { $inc: { quantity: r.quantity }, $set: { lastUpdated: new Date() } }
+      );
       return res.json({ success: true, data: { id: updated._id, status: updated.status } });
+    } else {
+      if (r.status === 'canceled' || r.status === 'expired') {
+        return res.json({ success: true, data: { id: r._id, status: r.status } });
+      }
+      return res.status(400).json({ success: false, message: `Cannot cancel a ${r.status} reservation` });
     }
   } catch (e) {
     console.error('cancelReservation error', e);

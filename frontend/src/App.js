@@ -25,8 +25,14 @@ const AppContent = () => {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        const savedUser = localStorage.getItem('user') || localStorage.getItem('userData');
-        const savedToken = localStorage.getItem('token') || localStorage.getItem('authToken');
+        // Purge legacy persistent localStorage tokens so closing the site forces logout
+        localStorage.removeItem('user');
+        localStorage.removeItem('userData');
+        localStorage.removeItem('token');
+        localStorage.removeItem('authToken');
+
+        const savedUser = sessionStorage.getItem('user') || sessionStorage.getItem('userData');
+        const savedToken = sessionStorage.getItem('token') || sessionStorage.getItem('authToken');
         if (savedUser && savedToken) {
           setUser(JSON.parse(savedUser));
         }
@@ -99,22 +105,30 @@ const AppContent = () => {
   const handleLogin = (userData, token) => {
     setUser(userData);
     if (token) {
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('token', token);
+      sessionStorage.setItem('authToken', token);
+      sessionStorage.setItem('token', token);
     }
-    localStorage.setItem('userData', JSON.stringify(userData));
-    localStorage.setItem('user', JSON.stringify(userData));
+    sessionStorage.setItem('userData', JSON.stringify(userData));
+    sessionStorage.setItem('user', JSON.stringify(userData));
+    localStorage.removeItem('user');
+    localStorage.removeItem('userData');
+    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
     console.log('handleLogin:user', { role: userData?.role, userType: userData?.userType, profileComplete: userData?.profileComplete });
     roleAwareRedirect(userData);
   };
   const handleRegister = (userData, token) => {
     setUser(userData);
     if (token) {
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('token', token);
+      sessionStorage.setItem('authToken', token);
+      sessionStorage.setItem('token', token);
     }
-    localStorage.setItem('userData', JSON.stringify(userData));
-    localStorage.setItem('user', JSON.stringify(userData));
+    sessionStorage.setItem('userData', JSON.stringify(userData));
+    sessionStorage.setItem('user', JSON.stringify(userData));
+    localStorage.removeItem('user');
+    localStorage.removeItem('userData');
+    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
     console.log('handleRegister:user', { role: userData?.role, userType: userData?.userType, profileComplete: userData?.profileComplete });
     roleAwareRedirect(userData);
   };
@@ -128,6 +142,10 @@ const AppContent = () => {
     } catch (error) {
       console.error('❌ Logout API error:', error);
     } finally {
+      sessionStorage.removeItem('user');
+      sessionStorage.removeItem('userData');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('authToken');
       localStorage.removeItem('user');
       localStorage.removeItem('userData');
       localStorage.removeItem('token');

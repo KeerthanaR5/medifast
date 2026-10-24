@@ -14,7 +14,7 @@ const api = axios.create({
 // Enhanced request interceptor
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+    const token = sessionStorage.getItem('authToken') || sessionStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -49,24 +49,35 @@ api.interceptors.response.use(
         .then((refreshResp) => {
           if (refreshResp && refreshResp.data && refreshResp.data.success && refreshResp.data.token) {
             const newToken = refreshResp.data.token;
-            localStorage.setItem('authToken', newToken);
+            sessionStorage.setItem('authToken', newToken);
+            sessionStorage.setItem('token', newToken);
             api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
             originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers.Authorization = `Bearer ${newToken}`;
             return api(originalRequest);
           }
           // refresh did not provide token
+          sessionStorage.removeItem('authToken');
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('userData');
+          sessionStorage.removeItem('user');
           localStorage.removeItem('authToken');
           localStorage.removeItem('token');
           localStorage.removeItem('userData');
+          localStorage.removeItem('user');
           if (window.location.pathname !== '/') window.location.href = '/';
           return Promise.reject({ message: 'Session expired' });
         })
         .catch((refreshErr) => {
           console.error('Token refresh failed:', refreshErr);
+          sessionStorage.removeItem('authToken');
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('userData');
+          sessionStorage.removeItem('user');
           localStorage.removeItem('authToken');
           localStorage.removeItem('token');
           localStorage.removeItem('userData');
+          localStorage.removeItem('user');
           if (window.location.pathname !== '/') window.location.href = '/';
           return Promise.reject({ message: 'Session expired' });
         });
@@ -121,8 +132,10 @@ export const authAPI = {
       
       // Store auth data on successful login
       if (response.data.success && response.data.token) {
-        localStorage.setItem('authToken', response.data.token);
-        localStorage.setItem('userData', JSON.stringify(response.data.user));
+        sessionStorage.setItem('authToken', response.data.token);
+        sessionStorage.setItem('token', response.data.token);
+        sessionStorage.setItem('userData', JSON.stringify(response.data.user));
+        sessionStorage.setItem('user', JSON.stringify(response.data.user));
       }
       
       return response.data;
@@ -146,8 +159,14 @@ export const authAPI = {
       
       // Store auth data on successful registration
       if (response.data.success && response.data.token) {
-        localStorage.setItem('authToken', response.data.token);
-        localStorage.setItem('userData', JSON.stringify(response.data.user));
+        sessionStorage.setItem('authToken', response.data.token);
+        sessionStorage.setItem('token', response.data.token);
+        sessionStorage.setItem('userData', JSON.stringify(response.data.user));
+        sessionStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('userData');
+        localStorage.removeItem('user');
       }
       
       return response.data;
@@ -164,8 +183,14 @@ export const authAPI = {
       const response = await api.post('/auth/quick-register', userData);
       
       if (response.data.success && response.data.token) {
-        localStorage.setItem('authToken', response.data.token);
-        localStorage.setItem('userData', JSON.stringify(response.data.user));
+        sessionStorage.setItem('authToken', response.data.token);
+        sessionStorage.setItem('token', response.data.token);
+        sessionStorage.setItem('userData', JSON.stringify(response.data.user));
+        sessionStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('token');
+        localStorage.removeItem('userData');
+        localStorage.removeItem('user');
       }
       
       return response.data;
@@ -214,9 +239,14 @@ export const authAPI = {
       // Continue with local cleanup even if API call fails
     } finally {
       // Always clear local storage
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('token');
-      localStorage.removeItem('userData');
+      sessionStorage.removeItem('authToken');
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('userData');
+          sessionStorage.removeItem('user');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('token');
+          localStorage.removeItem('userData');
+          localStorage.removeItem('user');
     }
   },
 
@@ -360,7 +390,7 @@ export const pharmacyOwnerAPI = {
     // Copy interceptors
     bulkApi.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const token = sessionStorage.getItem('authToken') || sessionStorage.getItem('token');
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -652,8 +682,8 @@ export const medicineAPI = {
  * Check if user is authenticated
  */
 export const isAuthenticated = () => {
-  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-  const userData = localStorage.getItem('userData');
+  const token = sessionStorage.getItem('authToken') || sessionStorage.getItem('token');
+  const userData = sessionStorage.getItem('userData') || sessionStorage.getItem('user');
   return !!(token && userData);
 };
 
@@ -662,7 +692,7 @@ export const isAuthenticated = () => {
  */
 export const getCurrentUser = () => {
   try {
-    const userData = localStorage.getItem('userData');
+    const userData = sessionStorage.getItem('userData') || sessionStorage.getItem('user');
     return userData ? JSON.parse(userData) : null;
   } catch (error) {
     console.error('Error parsing user data:', error);
@@ -674,24 +704,35 @@ export const getCurrentUser = () => {
  * Get authentication token
  */
 export const getAuthToken = () => {
-  return localStorage.getItem('authToken') || localStorage.getItem('token');
+  return sessionStorage.getItem('authToken') || sessionStorage.getItem('token');
 };
 
 /**
  * Clear authentication data
  */
 export const clearAuthData = () => {
-  localStorage.removeItem('authToken');
-  localStorage.removeItem('token');
-  localStorage.removeItem('userData');
+  sessionStorage.removeItem('authToken');
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('userData');
+          sessionStorage.removeItem('user');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('token');
+          localStorage.removeItem('userData');
+          localStorage.removeItem('user');
 };
 
 /**
  * Set authentication data
  */
 export const setAuthData = (token, user) => {
-  localStorage.setItem('authToken', token);
-  localStorage.setItem('userData', JSON.stringify(user));
+  sessionStorage.setItem('authToken', token);
+  sessionStorage.setItem('token', token);
+  sessionStorage.setItem('userData', JSON.stringify(user));
+  sessionStorage.setItem('user', JSON.stringify(user));
+  localStorage.removeItem('authToken');
+  localStorage.removeItem('token');
+  localStorage.removeItem('userData');
+  localStorage.removeItem('user');
 };
 
 // ===============================================

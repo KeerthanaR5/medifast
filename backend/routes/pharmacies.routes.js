@@ -300,6 +300,8 @@ router.get('/search-unified', async (req, res) => {
     const radiusMeters = Math.min(20000, Math.max(100, radius));
 
     // Aggregation for all verified within radius + attach stock item if any for this medicine
+    const escapedMedName = (med.name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedMedGen = (med.generic_name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const verifiedAll = await Pharmacy.aggregate([
       {
         $geoNear: {
@@ -307,7 +309,7 @@ router.get('/search-unified', async (req, res) => {
           distanceField: 'distance',
           spherical: true,
           maxDistance: radiusMeters,
-          key: 'address.coordinates'
+          key: 'location'
         }
       },
       { $match: searchablePharmacyFilter() },
@@ -316,8 +318,40 @@ router.get('/search-unified', async (req, res) => {
           from: 'stocks',
           let: { pharmacyId: '$_id' },
           pipeline: [
-            { $match: { $expr: { $and: [ { $eq: ['$pharmacy', '$$pharmacyId'] }, { $eq: ['$medicine', med._id] } ] } } },
-            { $project: { _id: 0, medicine: 1, quantity: 1, unitPrice: 1 } }
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$pharmacy', '$$pharmacyId'] },
+                    {
+                      $or: [
+                        { $eq: ['$medicine', med._id] },
+                        {
+                          $regexMatch: {
+                            input: { $ifNull: ['$medicineName', ''] },
+                            regex: new RegExp(`^${escapedMedName}$`, 'i')
+                          }
+                        },
+                        {
+                          $regexMatch: {
+                            input: { $ifNull: ['$medicineName', ''] },
+                            regex: new RegExp(`^${escapedMedGen}$`, 'i')
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              $project: {
+                _id: 0,
+                medicine: { $ifNull: ['$medicine', med._id] },
+                quantity: 1,
+                unitPrice: 1
+              }
+            }
           ],
           as: 'stockItems'
         }
@@ -594,6 +628,8 @@ router.get('/search', overpassLimiter, async (req, res) => {
     };
 
     // Step 1: verified pharmacies within radius and optional stock for the medicine
+    const escapedMedName = (med.name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedMedGen = (med.generic_name || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const verifiedAll = await Pharmacy.aggregate([
       {
         $geoNear: {
@@ -610,8 +646,40 @@ router.get('/search', overpassLimiter, async (req, res) => {
           from: 'stocks',
           let: { pharmacyId: '$_id' },
           pipeline: [
-            { $match: { $expr: { $and: [ { $eq: ['$pharmacy', '$$pharmacyId'] }, { $eq: ['$medicine', med._id] } ] } } },
-            { $project: { _id: 0, medicine: 1, quantity: 1, unitPrice: 1 } }
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$pharmacy', '$$pharmacyId'] },
+                    {
+                      $or: [
+                        { $eq: ['$medicine', med._id] },
+                        {
+                          $regexMatch: {
+                            input: { $ifNull: ['$medicineName', ''] },
+                            regex: new RegExp(`^${escapedMedName}$`, 'i')
+                          }
+                        },
+                        {
+                          $regexMatch: {
+                            input: { $ifNull: ['$medicineName', ''] },
+                            regex: new RegExp(`^${escapedMedGen}$`, 'i')
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              $project: {
+                _id: 0,
+                medicine: { $ifNull: ['$medicine', med._id] },
+                quantity: 1,
+                unitPrice: 1
+              }
+            }
           ],
           as: 'stockItems'
         }
@@ -718,7 +786,7 @@ router.get('/search', overpassLimiter, async (req, res) => {
         demo: v.verified === 'demo',
         distance_m: v.distance,
         open_now,
-        stock: v.stock ? { medicine: v.stock.medicine, qty: v.stock.quantity, unitPrice: v.stock.unitPrice } : null,
+        stock: v.stock ? { medicine: v.stock.medicine || med._id, qty: v.stock.quantity, unitPrice: v.stock.unitPrice } : null,
         // Back-compat for frontend
         pharmacy_id: v._id,
         coordinates: v.coordinates,

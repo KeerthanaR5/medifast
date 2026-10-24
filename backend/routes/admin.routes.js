@@ -13,11 +13,13 @@ router.get('/pharmacies/pending', listPending);
 // GET /api/admin/pharmacies/:id
 router.get('/pharmacies/:id', getPharmacyDetail);
 
-// PATCH /api/admin/pharmacies/:id/approve
+// PATCH / PUT /api/admin/pharmacies/:id/approve
 router.patch('/pharmacies/:id/approve', approvePharmacy);
+router.put('/pharmacies/:id/approve', approvePharmacy);
 
-// PATCH /api/admin/pharmacies/:id/reject
+// PATCH / PUT /api/admin/pharmacies/:id/reject
 router.patch('/pharmacies/:id/reject', rejectPharmacy);
+router.put('/pharmacies/:id/reject', rejectPharmacy);
 
 // GET /api/admin/pharmacies/:id/audit
 router.get('/pharmacies/:id/audit', getAudit);

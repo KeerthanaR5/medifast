@@ -413,14 +413,16 @@ const login = async (req, res) => {
     await user.save();
 
     // Set refresh token as HTTP-only cookie
-    const cookieMaxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
-    res.cookie('refreshToken', refreshToken, {
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: cookieMaxAge,
       path: '/api/auth'
-    });
+    };
+    if (rememberMe) {
+      cookieOptions.maxAge = 30 * 24 * 60 * 60 * 1000;
+    }
+    res.cookie('refreshToken', refreshToken, cookieOptions);
 
     res.status(200).json({
       success: true,

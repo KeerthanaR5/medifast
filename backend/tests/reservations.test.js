@@ -1,4 +1,4 @@
-﻿const request = require('supertest');
+const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
@@ -463,4 +463,118 @@ test('a picked-up reservation cannot be canceled', async () => {
   expect(updatedStock.quantity).toBe(98);
 });
 
+test('canceling a confirmed reservation restores stock exactly once', async () => {
+  const patient = await User.create({
+    fullName: 'Confirmed Cancel Patient',
+    email: 'confirmed.cancel.patient@example.com',
+    password: 'Test@1234',
+    phone: String(Date.now()).slice(-10),
+    role: 'customer'
+  });
 
+  const pharmacy = await Pharmacy.create({
+    name: 'Confirmed Cancel Pharmacy',
+    verified: 'manual',
+    location: {
+      type: 'Point',
+      coordinates: [77.5946, 12.9716]
+    }
+  });
+
+  const stock = await Stock.create({
+    pharmacy: pharmacy._id,
+    medicineName: 'Paracetamol 500mg',
+    quantity: 90,
+    unitPrice: 5.5
+  });
+
+  const reservation = await Reservation.create({
+    user: patient._id,
+    stock: stock._id,
+    quantity: 5,
+    status: 'confirmed',
+    expiresAt: new Date(Date.now() + 120 * 60 * 1000)
+  });
+
+  const login = await request(app)
+    .post('/api/auth/login')
+    .send({
+      email: patient.email,
+      password: 'Test@1234'
+    });
+
+  const token = login.body.data?.accessToken || login.body.accessToken || login.body.token;
+
+  // First cancellation: succeeds and restores stock
+  const response1 = await request(app)
+    .patch(`/api/reservations/${reservation._id}/cancel`)
+    .set('Authorization', `Bearer ${token}`);
+
+  expect(response1.statusCode).toBe(200);
+  expect(response1.body.data.status).toBe('canceled');
+
+  const stockAfterCancel = await Stock.findById(stock._id);
+  expect(stockAfterCancel.quantity).toBe(95);
+
+  // Second cancellation: idempotent, returns current status and does NOT increment stock again
+  const response2 = await request(app)
+    .patch(`/api/reservations/${reservation._id}/cancel`)
+    .set('Authorization', `Bearer ${token}`);
+
+  expect(response2.statusCode).toBe(200);
+  const stockAfterSecondCancel = await Stock.findById(stock._id);
+  expect(stockAfterSecondCancel.quantity).toBe(95);
+});
+
+test('can reserve medicine when stock references medicineName and medicineId is provided', async () => {
+  const patient = await User.create({
+    fullName: 'Name Resolution Patient',
+    email: 'name.res.patient@example.com',
+    password: 'Test@1234',
+    phone: String(Date.now()).slice(-10),
+    role: 'customer'
+  });
+
+  const pharmacy = await Pharmacy.create({
+    name: 'Name Resolution Pharmacy',
+    verified: 'manual',
+    location: {
+      type: 'Point',
+      coordinates: [77.5946, 12.9716]
+    }
+  });
+
+  const medicine = await Medicine.create({
+    name: 'Paracetamol 500mg',
+    generic_name: 'Paracetamol',
+    category: 'Analgesic'
+  });
+
+  const stock = await Stock.create({
+    pharmacy: pharmacy._id,
+    medicineName: 'Paracetamol 500mg',
+    quantity: 50,
+    unitPrice: 6.0
+  });
+
+  const login = await request(app)
+    .post('/api/auth/login')
+    .send({ email: patient.email, password: 'Test@1234' });
+
+  const token = login.body.data?.accessToken || login.body.accessToken || login.body.token;
+
+  const response = await request(app)
+    .post('/api/reservations')
+    .set('Authorization', `Bearer ${token}`)
+    .send({
+      pharmacyId: pharmacy._id.toString(),
+      medicineId: medicine._id.toString(),
+      quantity: 4
+    });
+
+  expect(response.statusCode).toBe(201);
+  expect(response.body.data.status).toBe('pending');
+
+  const updatedStock = await Stock.findById(stock._id);
+  expect(updatedStock.quantity).toBe(46);
+});

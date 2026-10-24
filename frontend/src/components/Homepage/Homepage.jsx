@@ -255,7 +255,7 @@ const Homepage = ({ onLogin, onRegister, apiStatus, initialAuthModal, initialAut
       </section>
 
       <footer className="footer">
-        <p> 2025 MediFast. All rights reserved.</p>
+        <p> 2026 MediFast</p>
         <nav className="footer-links">
           <a href="#privacy">Privacy Policy</a>
           <a href="#terms">Terms of Service</a>

@@ -152,10 +152,14 @@ const AuthModal = ({
         const token = data.token || data.data?.accessToken;
         const user = data.user || data.data?.user;
         if (token && user) {
-          localStorage.setItem('token', token);
-          localStorage.setItem('authToken', token);
-          localStorage.setItem('user', JSON.stringify(user));
-          localStorage.setItem('userData', JSON.stringify(user));
+          sessionStorage.setItem('token', token);
+          sessionStorage.setItem('authToken', token);
+          sessionStorage.setItem('user', JSON.stringify(user));
+          sessionStorage.setItem('userData', JSON.stringify(user));
+          localStorage.removeItem('token');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          localStorage.removeItem('userData');
           setSuccess(authType === 'login' ? 'Welcome back! Redirecting to dashboard...' : 'Account created successfully! Redirecting to dashboard...');
           if (onSuccess) {
             onSuccess(user, token);

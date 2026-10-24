@@ -55,11 +55,29 @@ export default function PharmacyApprovals() {
   }
 
   async function approve(id) {
+    const confirmed = window.confirm(
+      'Have you independently verified this pharmacy license and ownership? Click OK to proceed.'
+    );
+    if (!confirmed) return;
+
+    const verificationNote = window.prompt(
+      'Enter an independent verification note (minimum 20 characters):',
+      'Verified physical pharmacy premises and valid state drug retail license.'
+    );
+    if (!verificationNote || verificationNote.trim().length < 20) {
+      alert('A verification note of at least 20 characters is required for approval.');
+      return;
+    }
+
     setActionBusy(true);
     try {
-      await api.put(`/admin/pharmacies/${id}/approve`);
+      await api.patch(`/admin/pharmacies/${id}/approve`, {
+        verificationConfirmed: true,
+        verificationNote: verificationNote.trim()
+      });
       await loadPending();
       if (selected === id) setDetail(null);
+      alert('Pharmacy approved successfully.');
     } catch (e) {
       alert(e?.response?.data?.message || 'Approve failed');
     } finally {
@@ -68,11 +86,13 @@ export default function PharmacyApprovals() {
   }
 
   async function reject(id) {
+    const reviewNote = window.prompt('Reason for rejection (optional):');
     setActionBusy(true);
     try {
-      await api.put(`/admin/pharmacies/${id}/reject`);
+      await api.patch(`/admin/pharmacies/${id}/reject`, { reviewNote: reviewNote || '' });
       await loadPending();
       if (selected === id) setDetail(null);
+      alert('Pharmacy rejected.');
     } catch (e) {
       alert(e?.response?.data?.message || 'Reject failed');
     } finally {
